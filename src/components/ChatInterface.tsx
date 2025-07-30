@@ -1,165 +1,284 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface Message {
-  id: string;
-  content: string;
-  role: "user" | "assistant";
-  timestamp: Date;
-}
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Send, Plus, MessageSquare, Trash2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useConversations, useMessages } from '@/hooks/useChat';
+import { useToast } from '@/hooks/use-toast';
 
 const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const { 
+    conversations, 
+    loading: conversationsLoading, 
+    createConversation, 
+    deleteConversation 
+  } = useConversations(user?.id);
+  
+  const { 
+    messages, 
+    loading: messagesLoading, 
+    addMessage, 
+    buildCheatSheet 
+  } = useMessages(currentConversationId);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleNewConversation = async () => {
+    const conversation = await createConversation();
+    if (conversation) {
+      setCurrentConversationId(conversation.id);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    const success = await deleteConversation(conversationId);
+    if (success) {
+      if (currentConversationId === conversationId) {
+        setCurrentConversationId(null);
+      }
+      toast({
+        title: "Conversation deleted",
+        description: "The conversation has been removed.",
+      });
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: input.trim(),
-      role: "user",
-      timestamp: new Date(),
-    };
+    let conversationId = currentConversationId;
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    // Create new conversation if none exists
+    if (!conversationId) {
+      const conversation = await createConversation();
+      if (!conversation) {
+        toast({
+          title: "Error",
+          description: "Failed to create conversation",
+          variant: "destructive",
+        });
+        return;
+      }
+      conversationId = conversation.id;
+      setCurrentConversationId(conversationId);
+    }
+
+    const userMessage = input.trim();
+    setInput('');
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual Gemini API call
-      // For now, simulate a response
-      setTimeout(() => {
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: `I understand you're asking about: "${userMessage.content}". As your AI tutor, I'm here to help with your USMLE preparation. This is a placeholder response - the Gemini API integration will be implemented next.`,
-          role: "assistant",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-        setIsLoading(false);
-      }, 1000);
+      // Add user message to database
+      await addMessage(userMessage, 'user');
+
+      // Build the cheat sheet with full conversation history + new question
+      const conversationHistory = buildCheatSheet();
+      const cheatSheet = conversationHistory + '\n\nuser: ' + userMessage;
+
+      // Here you'll integrate with your API
+      // For now, we'll simulate a response
+      console.log('Cheat Sheet to send to API:', cheatSheet);
+      
+      // TODO: Replace this with your actual API call
+      // const apiResponse = await callYourAPI(cheatSheet);
+      
+      // Simulated response for now
+      const simulatedResponse = `I understand your question: "${userMessage}". This is where your AI API response would appear. The system is building a complete conversation history (cheat sheet) for context.`;
+      
+      // Add AI response to database
+      await addMessage(simulatedResponse, 'assistant');
+
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto">
-      {/* Chat Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gradient-primary rounded-full mx-auto mb-4 flex items-center justify-center">
-              <Bot className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Welcome to MedTutor AI</h3>
-            <p className="text-muted-foreground">
-              Ask me anything about USMLE preparation, medical concepts, or general questions.
-            </p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "flex gap-3 animate-fade-in",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-white" />
-                </div>
-              )}
-              
-              <Card className={cn(
-                "max-w-[80%] p-4 shadow-card",
-                message.role === "user" 
-                  ? "bg-chat-user-message text-white" 
-                  : "bg-chat-ai-message"
-              )}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                <span className={cn(
-                  "text-xs mt-2 block opacity-70",
-                  message.role === "user" ? "text-white/70" : "text-muted-foreground"
-                )}>
-                  {message.timestamp.toLocaleTimeString()}
-                </span>
-              </Card>
-
-              {message.role === "user" && (
-                <div className="w-8 h-8 bg-secondary-accent rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-              )}
-            </div>
-          ))
-        )}
-
-        {isLoading && (
-          <div className="flex gap-3 animate-fade-in">
-            <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <Card className="bg-chat-ai-message p-4 shadow-card">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-muted-foreground">Thinking...</span>
+    <div className="flex h-full">
+      {/* Sidebar for conversations */}
+      <div className="w-80 border-r border-border bg-card/30 flex flex-col">
+        <div className="p-4 border-b border-border">
+          <Button 
+            onClick={handleNewConversation} 
+            className="w-full"
+            variant="hero"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Conversation
+          </Button>
+        </div>
+        
+        <ScrollArea className="flex-1">
+          <div className="p-2">
+            {conversationsLoading ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Loading conversations...
               </div>
-            </Card>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No conversations yet</p>
+                <p className="text-sm">Start a new chat to begin</p>
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors group hover:bg-accent/50 ${
+                    currentConversationId === conversation.id ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => setCurrentConversationId(conversation.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {conversation.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(conversation.updated_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteConversation(conversation.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        )}
-
-        <div ref={messagesEndRef} />
+        </ScrollArea>
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4">
-        <form onSubmit={handleSubmit} className="flex gap-3">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything about USMLE or medical concepts..."
-            className="min-h-[60px] max-h-[200px] resize-none bg-chat-input border-input focus:border-primary-light transition-smooth"
-            disabled={isLoading}
-          />
-          <Button
-            type="submit"
-            variant="chat"
-            size="icon"
-            className="self-end h-[60px] w-[60px]"
-            disabled={!input.trim() || isLoading}
-          >
-            <Send className="w-5 h-5" />
-          </Button>
-        </form>
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col">
+        {currentConversationId ? (
+          <>
+            <div className="flex-1 p-6 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="space-y-4 max-w-4xl mx-auto">
+                  {messagesLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-medium mb-2">Start the conversation</h3>
+                      <p className="text-muted-foreground">
+                        Ask me anything about medical topics and I'll help you learn!
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <Card className={`max-w-[80%] p-4 ${
+                          message.role === 'user' 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'bg-card'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <p className={`text-xs mt-2 ${
+                            message.role === 'user' 
+                              ? 'text-primary-foreground/70' 
+                              : 'text-muted-foreground'
+                          }`}>
+                            {new Date(message.created_at).toLocaleTimeString()}
+                          </p>
+                        </Card>
+                      </div>
+                    ))
+                  )}
+                  
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <Card className="p-4 bg-card">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.4s]"></div>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                  
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+            </div>
+
+            <Separator />
+            
+            <div className="p-6">
+              <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+                <div className="flex gap-4">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask me anything about medical topics..."
+                    disabled={isLoading}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading || !input.trim()}
+                    variant="hero"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-xl font-medium mb-2">Welcome to MedTutor AI</h3>
+              <p className="text-muted-foreground mb-6">
+                Select a conversation or start a new one to begin learning
+              </p>
+              <Button onClick={handleNewConversation} variant="hero">
+                <Plus className="w-4 h-4 mr-2" />
+                Start New Conversation
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
