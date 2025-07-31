@@ -20,7 +20,11 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Edge function called with method:', req.method);
+    console.log('GOOGLE_AI_API_KEY exists:', !!GOOGLE_AI_API_KEY);
+    
     const { cheatSheet, userQuestion }: ChatRequest = await req.json();
+    console.log('Received request:', { userQuestion, cheatSheetLength: cheatSheet.length });
 
     // For now, we'll use general knowledge since we don't have the knowledge base
     // In future, you can implement the FAISS vector search logic here

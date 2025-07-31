@@ -104,8 +104,13 @@ const ChatInterface = () => {
         }),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`Failed to get AI response: ${response.status} - ${errorText}`);
       }
 
       const { response: aiResponse } = await response.json();
