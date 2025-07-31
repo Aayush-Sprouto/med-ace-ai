@@ -92,18 +92,26 @@ const ChatInterface = () => {
       const conversationHistory = buildCheatSheet();
       const cheatSheet = conversationHistory + '\n\nuser: ' + userMessage;
 
-      // Here you'll integrate with your API
-      // For now, we'll simulate a response
-      console.log('Cheat Sheet to send to API:', cheatSheet);
-      
-      // TODO: Replace this with your actual API call
-      // const apiResponse = await callYourAPI(cheatSheet);
-      
-      // Simulated response for now
-      const simulatedResponse = `I understand your question: "${userMessage}". This is where your AI API response would appear. The system is building a complete conversation history (cheat sheet) for context.`;
+      // Call the AI chat function
+      const response = await fetch('/functions/v1/chat-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cheatSheet,
+          userQuestion: userMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response');
+      }
+
+      const { response: aiResponse } = await response.json();
       
       // Add AI response to database
-      await addMessage(simulatedResponse, 'assistant');
+      await addMessage(aiResponse, 'assistant');
 
     } catch (error) {
       console.error('Error sending message:', error);
