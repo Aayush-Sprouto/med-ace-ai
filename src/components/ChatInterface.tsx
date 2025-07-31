@@ -93,7 +93,7 @@ const ChatInterface = () => {
       const cheatSheet = conversationHistory + '\n\nuser: ' + userMessage;
 
       // Call the AI chat function
-      const response = await fetch('/functions/v1/chat-ai', {
+      const response = await fetch(`https://cbjuypyejbmqfeseejgl.supabase.co/functions/v1/chat-ai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
