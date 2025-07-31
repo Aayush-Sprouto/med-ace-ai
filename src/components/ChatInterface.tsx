@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Send, Plus, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations, useMessages } from '@/hooks/useChat';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,10 @@ const ChatInterface = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState('');
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingConversationTitle, setEditingConversationTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -21,7 +25,8 @@ const ChatInterface = () => {
     conversations, 
     loading: conversationsLoading, 
     createConversation, 
-    deleteConversation 
+    deleteConversation,
+    updateConversationTitle 
   } = useConversations(user?.id);
   
   const { 
@@ -59,15 +64,71 @@ const ChatInterface = () => {
     }
   };
 
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Copied!",
+        description: "Message copied to clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy message.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEditingConversation = (conversationId: string, currentTitle: string) => {
+    setEditingConversationId(conversationId);
+    setEditingConversationTitle(currentTitle);
+  };
+
+  const handleUpdateConversationTitle = async () => {
+    if (!editingConversationId || !editingConversationTitle.trim()) return;
+    
+    const success = await updateConversationTitle(editingConversationId, editingConversationTitle.trim());
+    if (success) {
+      toast({
+        title: "Updated",
+        description: "Conversation title updated.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to update conversation title.",
+        variant: "destructive",
+      });
+    }
+    setEditingConversationId(null);
+    setEditingConversationTitle('');
+  };
+
+  const cancelEditingConversation = () => {
+    setEditingConversationId(null);
+    setEditingConversationTitle('');
+  };
+
+  // Generate conversation title from first user message
+  const generateConversationTitle = (firstMessage: string): string => {
+    // Take first 50 characters and add ellipsis if longer
+    const title = firstMessage.trim().substring(0, 50);
+    return title.length === 50 ? title + '...' : title;
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    const userMessage = input.trim();
     let conversationId = currentConversationId;
 
     // Create new conversation if none exists
     if (!conversationId) {
-      const conversation = await createConversation();
+      // Generate title from user message
+      const title = generateConversationTitle(userMessage);
+      const conversation = await createConversation(title);
       if (!conversation) {
         toast({
           title: "Error",
@@ -79,8 +140,6 @@ const ChatInterface = () => {
       conversationId = conversation.id;
       setCurrentConversationId(conversationId);
     }
-
-    const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
 
@@ -168,24 +227,82 @@ const ChatInterface = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {conversation.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(conversation.updated_at).toLocaleDateString()}
-                      </p>
+                      {editingConversationId === conversation.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editingConversationTitle}
+                            onChange={(e) => setEditingConversationTitle(e.target.value)}
+                            className="text-sm h-6 p-1"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleUpdateConversationTitle();
+                              } else if (e.key === 'Escape') {
+                                cancelEditingConversation();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateConversationTitle();
+                            }}
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cancelEditingConversation();
+                            }}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium truncate">
+                            {conversation.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(conversation.updated_at).toLocaleDateString()}
+                          </p>
+                        </>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteConversation(conversation.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {editingConversationId !== conversation.id && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditingConversation(conversation.id, conversation.title);
+                          }}
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteConversation(conversation.id);
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -217,21 +334,37 @@ const ChatInterface = () => {
                     messages.map((message) => (
                       <div
                         key={message.id}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <Card className={`max-w-[80%] p-4 ${
+                        <Card className={`max-w-[80%] p-4 relative ${
                           message.role === 'user' 
                             ? 'bg-primary text-primary-foreground' 
                             : 'bg-card'
                         }`}>
                           <p className="whitespace-pre-wrap">{message.content}</p>
-                          <p className={`text-xs mt-2 ${
-                            message.role === 'user' 
-                              ? 'text-primary-foreground/70' 
-                              : 'text-muted-foreground'
-                          }`}>
-                            {new Date(message.created_at).toLocaleTimeString()}
-                          </p>
+                          <div className="flex items-center justify-between mt-2">
+                            <p className={`text-xs ${
+                              message.role === 'user' 
+                                ? 'text-primary-foreground/70' 
+                                : 'text-muted-foreground'
+                            }`}>
+                              {new Date(message.created_at).toLocaleTimeString()}
+                            </p>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-6 w-6 p-0 ${
+                                  message.role === 'user' 
+                                    ? 'hover:bg-primary-foreground/20 text-primary-foreground/70' 
+                                    : 'hover:bg-accent'
+                                }`}
+                                onClick={() => handleCopyMessage(message.content)}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
                         </Card>
                       </div>
                     ))
