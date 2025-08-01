@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
+// import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
+import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations, useMessages } from '@/hooks/useChat';
 import { useToast } from '@/hooks/use-toast';
 
 const ChatInterface = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -179,10 +181,23 @@ const ChatInterface = () => {
     }
   };
   
-  return (
-    <div className="flex h-full">
-      {/* Sidebar for conversations*/}
-      <div className="w-80 border-r border-border bg-card/30 flex flex-col">
+    return (
+    <div className="relative flex h-full overflow-hidden bg-background">
+      
+      {/* Backdrop for mobile view, appears when sidebar is open */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+        ></div>
+      )}
+
+      {/* Responsive Sidebar (Drawer on mobile, Push on desktop) */}
+      <div 
+        className={`fixed md:relative z-30 flex h-full w-80 flex-shrink-0 flex-col border-r border-border bg-card/30 transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="p-4 border-b border-border">
           <Button 
             onClick={handleNewConversation} 
@@ -269,11 +284,24 @@ const ChatInterface = () => {
         </ScrollArea>
       </div>
 
-      {/* Main chat area */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col max-h-screen">
+        
+        {/* Always-visible Toggle Button */}
+        <Button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          variant="ghost"
+          size="sm"
+          className={`fixed top-3 left-3 z-40 h-8 w-8 p-0 text-muted-foreground transition-all duration-300 hover:bg-accent hover:text-foreground md:absolute ${
+            isSidebarOpen ? 'md:left-80' : 'md:left-3'
+          }`}
+        >
+          {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+        </Button>
+        
         {currentConversationId ? (
           <>
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-6 pt-14 overflow-y-auto">
               <div className="space-y-4 max-w-4xl mx-auto">
                   {messagesLoading ? (
                     <div className="text-center py-8">
@@ -367,7 +395,7 @@ const ChatInterface = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-6 pt-14">
             <div className="text-center">
               <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-medium mb-2">Welcome to MedTutor AI</h3>
