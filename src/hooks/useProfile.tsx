@@ -23,7 +23,12 @@ export const useProfile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [statistics, setStatistics] = useState<UserStatistics | null>(null);
+  const [statistics, setStatistics] = useState<UserStatistics>({
+    questions_asked: 0,
+    study_sessions: 0,
+    topics_covered: 0,
+    last_active_at: null
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async () => {
@@ -41,27 +46,27 @@ export const useProfile = () => {
         throw profileError;
       }
 
-      // Fetch statistics using raw SQL since user_statistics is a new table
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_user_stats', { user_uuid: user.id })
-        .single();
+      // Calculate statistics from conversations and messages
+      const { data: conversationsData } = await supabase
+        .from('conversations')
+        .select('id, created_at')
+        .eq('user_id', user.id);
 
-      if (statsError && statsError.code !== 'PGRST116') {
-        // If function doesn't exist, create default stats
-        setStatistics({
-          questions_asked: 0,
-          study_sessions: 0,
-          topics_covered: 0,
-          last_active_at: null
-        });
-      } else {
-        setStatistics(statsData || {
-          questions_asked: 0,
-          study_sessions: 0,
-          topics_covered: 0,
-          last_active_at: null
-        });
-      }
+      const { data: messagesData } = await supabase
+        .from('messages')
+        .select('conversation_id, role')
+        .in('conversation_id', conversationsData?.map(c => c.id) || []);
+
+      const questionsAsked = messagesData?.filter(m => m.role === 'user').length || 0;
+      const studySessions = conversationsData?.length || 0;
+      const topicsCovered = Math.min(Math.floor(questionsAsked / 5), 10); // Estimate topics based on questions
+
+      setStatistics({
+        questions_asked: questionsAsked,
+        study_sessions: studySessions,
+        topics_covered: topicsCovered,
+        last_active_at: conversationsData?.[0]?.created_at || null
+      });
 
       setProfile(profileData);
     } catch (error) {

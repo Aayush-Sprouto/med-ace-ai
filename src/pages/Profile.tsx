@@ -1,9 +1,38 @@
+import { useState } from 'react';
 import Header from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Settings, History, Crown } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Settings, History, Crown, Calendar } from "lucide-react";
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { EditProfileDialog } from '@/components/EditProfileDialog';
+import { format } from 'date-fns';
 
 const Profile = () => {
+  const { user } = useAuth();
+  const { profile, statistics, loading, updateProfile } = useProfile();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-bg">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const displayName = profile?.display_name || 'Medical Student';
+  const studyLevel = profile?.study_level || 'Beginner';
+  const joinDate = profile?.created_at ? format(new Date(profile.created_at), 'MMMM yyyy') : 'Recently';
+
   return (
     <div className="min-h-screen bg-gradient-bg">
       <Header />
@@ -17,32 +46,42 @@ const Profile = () => {
           <div className="grid md:grid-cols-2 gap-8">
             <Card className="p-6 shadow-card">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-white" />
-                </div>
+                <Avatar className="w-16 h-16">
+                  <AvatarImage src={profile?.avatar_url || ''} alt="Profile" />
+                  <AvatarFallback className="bg-gradient-primary text-white">
+                    <User className="w-8 h-8" />
+                  </AvatarFallback>
+                </Avatar>
                 <div>
-                  <h2 className="text-2xl font-semibold">Welcome Back!</h2>
-                  <p className="text-muted-foreground">Medical Student</p>
+                  <h2 className="text-2xl font-semibold">Welcome Back, {displayName}!</h2>
+                  <p className="text-muted-foreground">{studyLevel}</p>
                 </div>
               </div>
               
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Email</label>
-                  <p className="text-lg">student@medschool.edu</p>
+                  <p className="text-lg">{user?.email || 'No email available'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Study Level</label>
-                  <p className="text-lg">USMLE Step 1 Prep</p>
+                  <p className="text-lg">{studyLevel}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Join Date</label>
-                  <p className="text-lg">January 2024</p>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-lg">{joinDate}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-6 pt-6 border-t border-border">
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => setEditDialogOpen(true)}
+                >
                   <Settings className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
@@ -58,15 +97,15 @@ const Profile = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span>Questions Asked</span>
-                    <span className="font-semibold">47</span>
+                    <span className="font-semibold">{statistics?.questions_asked || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Study Sessions</span>
-                    <span className="font-semibold">12</span>
+                    <span className="font-semibold">{statistics?.study_sessions || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Topics Covered</span>
-                    <span className="font-semibold">8</span>
+                    <span className="font-semibold">{statistics?.topics_covered || 0}</span>
                   </div>
                 </div>
               </Card>
@@ -87,6 +126,13 @@ const Profile = () => {
           </div>
         </div>
       </main>
+
+      <EditProfileDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        profile={profile}
+        onSave={updateProfile}
+      />
     </div>
   );
 };
