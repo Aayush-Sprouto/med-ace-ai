@@ -110,9 +110,7 @@ const ChatInterface = () => {
     setEditingConversationTitle('');
   };
 
-  // Generate conversation title from first user message
   const generateConversationTitle = (firstMessage: string): string => {
-    // Take first 50 characters and add ellipsis if longer
     const title = firstMessage.trim().substring(0, 50);
     return title.length === 50 ? title + '...' : title;
   };
@@ -124,9 +122,7 @@ const ChatInterface = () => {
     const userMessage = input.trim();
     let conversationId = currentConversationId;
 
-    // Create new conversation if none exists
     if (!conversationId) {
-      // Generate title from user message
       const title = generateConversationTitle(userMessage);
       const conversation = await createConversation(title);
       if (!conversation) {
@@ -144,14 +140,10 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      // Add user message to database
       await addMessage(userMessage, 'user');
-
-      // Build the cheat sheet with full conversation history + new question
       const conversationHistory = buildCheatSheet();
       const cheatSheet = conversationHistory + '\n\nuser: ' + userMessage;
 
-      // Call the AI chat function
       const response = await fetch(`https://cbjuypyejbmqfeseejgl.supabase.co/functions/v1/chat-ai`, {
         method: 'POST',
         headers: {
@@ -173,8 +165,6 @@ const ChatInterface = () => {
       }
 
       const { response: aiResponse } = await response.json();
-      
-      // Add AI response to database
       await addMessage(aiResponse, 'assistant');
 
     } catch (error) {
@@ -188,10 +178,10 @@ const ChatInterface = () => {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="flex h-full">
-      {/* Sidebar for conversations */}
+      {/* Sidebar for conversations*/}
       <div className="w-80 border-r border-border bg-card/30 flex flex-col">
         <div className="p-4 border-b border-border">
           <Button 
@@ -243,26 +233,10 @@ const ChatInterface = () => {
                             }}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateConversationTitle();
-                            }}
-                          >
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleUpdateConversationTitle(); }}>
                             <Check className="w-3 h-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cancelEditingConversation();
-                            }}
-                          >
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); cancelEditingConversation(); }}>
                             <X className="w-3 h-3" />
                           </Button>
                         </div>
@@ -279,26 +253,10 @@ const ChatInterface = () => {
                     </div>
                     {editingConversationId !== conversation.id && (
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditingConversation(conversation.id, conversation.title);
-                          }}
-                        >
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); startEditingConversation(conversation.id, conversation.title); }}>
                           <Edit className="w-3 h-3" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteConversation(conversation.id);
-                          }}
-                        >
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conversation.id); }}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
@@ -312,18 +270,17 @@ const ChatInterface = () => {
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col max-h-screen">
         {currentConversationId ? (
           <>
-            <div className="flex-1 p-6 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="space-y-4 max-w-4xl mx-auto">
+            <div className="flex-1 p-6 overflow-y-auto">
+              <div className="space-y-4 max-w-4xl mx-auto">
                   {messagesLoading ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="text-center py-12">
+                    <div className="h-full flex flex-col items-center justify-center text-center">
                       <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       <h3 className="text-lg font-medium mb-2">Start the conversation</h3>
                       <p className="text-muted-foreground">
@@ -384,7 +341,6 @@ const ChatInterface = () => {
                   
                   <div ref={messagesEndRef} />
                 </div>
-              </ScrollArea>
             </div>
 
             <Separator />
