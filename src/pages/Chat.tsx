@@ -3,9 +3,9 @@ import ChatInterface from "@/components/ChatInterface";
 
 const Chat = () => {
   return (
-    <div className="min-h-screen bg-chat-background">
+    <div className="flex flex-col h-screen bg-chat-background">
       <Header />
-      <main>
+      <main className="flex-1 overflow-y-hidden">
         <ChatInterface />
       </main>
     </div>
