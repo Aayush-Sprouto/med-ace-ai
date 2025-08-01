@@ -4,16 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X, Menu } from 'lucide-react';
+import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations, useMessages } from '@/hooks/useChat';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
 
 const ChatInterface = () => {
   const [input, setInput] = useState('');
@@ -186,105 +180,97 @@ const ChatInterface = () => {
   };
   
   return (
-    <div className="flex h-full w-full">
-      {/* Collapsible Sidebar */}
-      <Sidebar className="w-80" collapsible="icon">
-        <SidebarContent>
-          <div className="p-4 border-b border-border">
-            <Button 
-              onClick={handleNewConversation} 
-              className="w-full"
-              variant="hero"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Conversation
-            </Button>
-          </div>
-          
-          <ScrollArea className="flex-1">
-            <div className="p-2">
-              {conversationsLoading ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  Loading conversations...
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>No conversations yet</p>
-                  <p className="text-sm">Start a new chat to begin</p>
-                </div>
-              ) : (
-                conversations.map((conversation) => (
-                  <div
-                    key={conversation.id}
-                    className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors group hover:bg-accent/50 ${
-                      currentConversationId === conversation.id ? 'bg-accent' : ''
-                    }`}
-                    onClick={() => setCurrentConversationId(conversation.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        {editingConversationId === conversation.id ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              value={editingConversationTitle}
-                              onChange={(e) => setEditingConversationTitle(e.target.value)}
-                              className="text-sm h-6 p-1"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleUpdateConversationTitle();
-                                } else if (e.key === 'Escape') {
-                                  cancelEditingConversation();
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleUpdateConversationTitle(); }}>
-                              <Check className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); cancelEditingConversation(); }}>
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="text-sm font-medium truncate">
-                              {conversation.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(conversation.updated_at).toLocaleDateString()}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      {editingConversationId !== conversation.id && (
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); startEditingConversation(conversation.id, conversation.title); }}>
-                            <Edit className="w-3 h-3" />
+    <div className="flex h-full">
+      {/* Sidebar for conversations*/}
+      <div className="w-80 border-r border-border bg-card/30 flex flex-col">
+        <div className="p-4 border-b border-border">
+          <Button 
+            onClick={handleNewConversation} 
+            className="w-full"
+            variant="hero"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Conversation
+          </Button>
+        </div>
+        
+        <ScrollArea className="flex-1">
+          <div className="p-2">
+            {conversationsLoading ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Loading conversations...
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No conversations yet</p>
+                <p className="text-sm">Start a new chat to begin</p>
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors group hover:bg-accent/50 ${
+                    currentConversationId === conversation.id ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => setCurrentConversationId(conversation.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      {editingConversationId === conversation.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editingConversationTitle}
+                            onChange={(e) => setEditingConversationTitle(e.target.value)}
+                            className="text-sm h-6 p-1"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleUpdateConversationTitle();
+                              } else if (e.key === 'Escape') {
+                                cancelEditingConversation();
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleUpdateConversationTitle(); }}>
+                            <Check className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conversation.id); }}>
-                            <Trash2 className="w-3 h-3" />
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); cancelEditingConversation(); }}>
+                            <X className="w-3 h-3" />
                           </Button>
                         </div>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium truncate">
+                            {conversation.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(conversation.updated_at).toLocaleDateString()}
+                          </p>
+                        </>
                       )}
                     </div>
+                    {editingConversationId !== conversation.id && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); startEditingConversation(conversation.id, conversation.title); }}>
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conversation.id); }}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </SidebarContent>
-      </Sidebar>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col max-h-screen">
-        {/* Header with sidebar toggle */}
-        <div className="flex items-center p-4 border-b border-border">
-          <SidebarTrigger className="mr-4" />
-          <h1 className="text-lg font-semibold">MedTutor AI</h1>
-        </div>
-
         {currentConversationId ? (
           <>
             <div className="flex-1 p-6 overflow-y-auto">
