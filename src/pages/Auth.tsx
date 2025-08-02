@@ -56,11 +56,19 @@ const Auth = () => {
     if (error) {
       let errorMessage = error.message;
       
-      // Handle specific error cases
-      if (error.message.includes('User already registered')) {
-        errorMessage = "An account with this email already exists. Please sign in instead.";
-      } else if (error.message.includes('already registered')) {
-        errorMessage = "This email is already registered. Please use the sign in tab.";
+      // Handle specific error cases with more comprehensive messages
+      if (error.message.includes('User already registered') || error.message.includes('already registered')) {
+        errorMessage = "An account with this email already exists. Please use the Sign In tab to access your account.";
+      } else if (error.message.includes('Password should be at least')) {
+        errorMessage = "Password must be at least 6 characters long. Please choose a stronger password.";
+      } else if (error.message.includes('Invalid email')) {
+        errorMessage = "Please enter a valid email address.";
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = "Please check your email and click the confirmation link before signing in.";
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = "Too many attempts. Please wait a moment before trying again.";
+      } else if (error.message.includes('network')) {
+        errorMessage = "Network error. Please check your connection and try again.";
       }
       
       toast({
@@ -71,7 +79,7 @@ const Auth = () => {
     } else {
       toast({
         title: "Account Created!",
-        description: "Please check your email to verify your account.",
+        description: "Please check your email to verify your account before signing in.",
       });
     }
     
