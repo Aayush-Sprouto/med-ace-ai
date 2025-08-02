@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 // import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
 import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -326,7 +329,15 @@ const ChatInterface = () => {
                             ? 'bg-primary text-primary-foreground' 
                             : 'bg-card'
                         }`}>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          {message.role === 'assistant' ? (
+                            <div className="prose prose-sm max-w-none dark:prose-invert">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          )}
                           <div className="flex items-center justify-between mt-2">
                             <p className={`text-xs ${
                               message.role === 'user' 
@@ -376,21 +387,31 @@ const ChatInterface = () => {
             <div className="p-6">
               <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
                 <div className="flex gap-4">
-                  <Input
+                  <Textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Ask me anything about medical topics..."
                     disabled={isLoading}
-                    className="flex-1"
+                    className="flex-1 min-h-[60px] max-h-[120px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
                   />
                   <Button 
                     type="submit" 
                     disabled={isLoading || !input.trim()}
                     variant="hero"
+                    className="self-end"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Press Enter to send, Shift+Enter for new line
+                </p>
               </form>
             </div>
           </>
