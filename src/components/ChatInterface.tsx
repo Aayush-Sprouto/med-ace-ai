@@ -292,7 +292,7 @@ const ChatInterface = () => {
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           variant="ghost"
           size="sm"
-          className={`fixed top-3 left-3 z-40 h-8 w-8 p-0 text-muted-foreground transition-all duration-300 hover:bg-accent hover:text-foreground md:absolute ${
+          className={`fixed top-3 left-3 z-50 h-8 w-8 p-0 text-muted-foreground transition-all duration-300 hover:bg-accent hover:text-foreground md:absolute ${
             isSidebarOpen ? 'md:left-80' : 'md:left-3'
           }`}
         >
