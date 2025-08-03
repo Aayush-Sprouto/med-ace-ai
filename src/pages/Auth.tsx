@@ -14,22 +14,26 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { signIn, signUp, signInWithGoogle, resetPassword, user } = useAuth();
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const { signIn, signUp, signInWithGoogle, resetPassword, updatePassword, user } = useAuth();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      navigate('/chat');
-    }
-    
-    // Check if it's a password reset mode
+    // Check if it's a password reset mode first
     const mode = searchParams.get('mode');
     if (mode === 'reset') {
-      setShowForgotPassword(true);
+      setShowPasswordReset(true);
+      return;
+    }
+    
+    if (user) {
+      navigate('/chat');
     }
   }, [user, navigate, searchParams]);
 
@@ -65,7 +69,11 @@ const Auth = () => {
       let errorMessage = error.message;
       
       // Handle specific error cases with more comprehensive messages
-      if (error.message.includes('User already registered') || error.message.includes('already registered')) {
+      if (error.message.includes('User already registered') || 
+          error.message.includes('already registered') ||
+          error.message.includes('already exists') ||
+          error.code === 'user_already_exists' ||
+          error.status === 422) {
         errorMessage = "An account with this email already exists. Please use the Sign In tab to access your account.";
       } else if (error.message.includes('Password should be at least')) {
         errorMessage = "Password must be at least 6 characters long. Please choose a stronger password.";
@@ -80,7 +88,7 @@ const Auth = () => {
       }
       
       toast({
-        title: "Sign Up Failed",
+        title: "Sign Up Failed", 
         description: errorMessage,
         variant: "destructive",
       });
@@ -127,6 +135,50 @@ const Auth = () => {
         description: "Please check your email for password reset instructions.",
       });
       setShowForgotPassword(false);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await updatePassword(newPassword);
+    
+    if (error) {
+      toast({
+        title: "Password Reset Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Password Updated!",
+        description: "Your password has been successfully updated. You can now sign in with your new password.",
+      });
+      setShowPasswordReset(false);
+      navigate('/auth');
     }
     
     setIsLoading(false);
@@ -322,6 +374,52 @@ const Auth = () => {
                     {isLoading ? "Sending..." : "Send Reset Link"}
                   </Button>
                 </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Password Reset Form */}
+        {showPasswordReset && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-background border border-border/50 rounded-lg p-6 w-full max-w-md shadow-elegant">
+              <h3 className="text-lg font-semibold mb-4">Set New Password</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please enter your new password below.
+              </p>
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading}
+                  variant="hero"
+                >
+                  {isLoading ? "Updating..." : "Update Password"}
+                </Button>
               </form>
             </div>
           </div>
