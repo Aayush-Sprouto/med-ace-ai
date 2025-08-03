@@ -7,14 +7,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X } from 'lucide-react';
 import { Send, Plus, MessageSquare, Trash2, Edit, Copy, Check, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations, useMessages } from '@/hooks/useChat';
 import { useToast } from '@/hooks/use-toast';
 
 const ChatInterface = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Changed default to false for mobile-first
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -25,21 +24,38 @@ const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  const { 
-    conversations, 
-    loading: conversationsLoading, 
-    createConversation, 
+
+  const {
+    conversations,
+    loading: conversationsLoading,
+    createConversation,
     deleteConversation,
-    updateConversationTitle 
+    updateConversationTitle
   } = useConversations(user?.id);
-  
-  const { 
-    messages, 
-    loading: messagesLoading, 
-    addMessage, 
-    buildCheatSheet 
+
+  const {
+    messages,
+    loading: messagesLoading,
+    addMessage,
+    buildCheatSheet
   } = useMessages(currentConversationId);
+
+  // Set sidebar open by default on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) { // md breakpoint
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,6 +69,10 @@ const ChatInterface = () => {
     const conversation = await createConversation();
     if (conversation) {
       setCurrentConversationId(conversation.id);
+      // Close sidebar on mobile after creating conversation
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
     }
   };
 
@@ -92,7 +112,7 @@ const ChatInterface = () => {
 
   const handleUpdateConversationTitle = async () => {
     if (!editingConversationId || !editingConversationTitle.trim()) return;
-    
+
     const success = await updateConversationTitle(editingConversationId, editingConversationTitle.trim());
     if (success) {
       toast({
@@ -183,27 +203,36 @@ const ChatInterface = () => {
       setIsLoading(false);
     }
   };
-  
-    return (
+
+  const handleConversationSelect = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    // Close sidebar on mobile after selecting conversation
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  return (
     <div className="relative flex h-full overflow-hidden bg-background">
-      
+
       {/* Backdrop for mobile view, appears when sidebar is open */}
       {isSidebarOpen && (
-        <div 
+        <div
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 z-20 bg-black/50 md:hidden"
-        ></div>
+          className="fixed inset-0 top-16 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+        />
       )}
 
-      {/* Responsive Sidebar (Drawer on mobile, Push on desktop) */}
-      <div 
-        className={`fixed md:relative z-30 flex h-full w-80 flex-shrink-0 flex-col border-r border-border bg-card/30 transition-transform duration-300 ease-in-out ${
+      {/* Responsive Sidebar */}
+      <div
+        className={`fixed md:relative z-50 flex h-full w-80 flex-shrink-0 flex-col border-r border-border bg-card  transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
+        {/* Sidebar Header */}
         <div className="p-4 border-b border-border">
-          <Button 
-            onClick={handleNewConversation} 
+          <Button
+            onClick={handleNewConversation}
             className="w-full"
             variant="hero"
           >
@@ -211,7 +240,7 @@ const ChatInterface = () => {
             New Conversation
           </Button>
         </div>
-        
+
         <ScrollArea className="flex-1">
           <div className="p-2">
             {conversationsLoading ? (
@@ -231,7 +260,7 @@ const ChatInterface = () => {
                   className={`p-3 mb-2 rounded-lg cursor-pointer transition-colors group hover:bg-accent/50 ${
                     currentConversationId === conversation.id ? 'bg-accent' : ''
                   }`}
-                  onClick={() => setCurrentConversationId(conversation.id)}
+                  onClick={() => handleConversationSelect(conversation.id)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
@@ -289,101 +318,103 @@ const ChatInterface = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col max-h-screen">
-        
-        {/* Always-visible Toggle Button */}
+
+        {/* Sidebar Toggle Button - Positioned beside sidebar */}
         <Button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          variant="ghost"
+          variant="ghost"   
           size="sm"
-          className={`fixed top-3 left-3 z-50 h-8 w-8 p-0 text-muted-foreground transition-all duration-300 hover:bg-accent hover:text-foreground md:absolute ${
-            isSidebarOpen ? 'md:left-80' : 'md:left-3'
+          className={`fixed top-[80px] z-50 h-10 w-10 p-0 bg-accent text-muted-foreground transition-all duration-300 hover:bg-accent/100  text-black ${
+            isSidebarOpen 
+              ? 'left-[330px]' // Right beside the sidebar (320px sidebar width)
+              : 'left-2' // Left edge when sidebar is closed
           }`}
         >
           {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </Button>
-        
+
         {currentConversationId ? (
           <>
-            <div className="flex-1 p-6 pt-14 overflow-y-auto">
+            <div className="flex-1 p-6 pt-16 overflow-y-auto"> {/* Increased pt to avoid toggle button */}
               <div className="space-y-4 max-w-4xl mx-auto">
-                  {messagesLoading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center">
-                      <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-lg font-medium mb-2">Start the conversation</h3>
-                      <p className="text-muted-foreground">
-                        Ask me anything about medical topics and I'll help you learn!
-                      </p>
-                    </div>
-                  ) : (
-                    messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} group`}
-                      >
-                        <Card className={`max-w-[80%] p-4 relative ${
-                          message.role === 'user' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-card'
-                        }`}>
-                          {message.role === 'assistant' ? (
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p className="whitespace-pre-wrap">{message.content}</p>
-                          )}
-                          <div className="flex items-center justify-between mt-2">
-                            <p className={`text-xs ${
-                              message.role === 'user' 
-                                ? 'text-primary-foreground/70' 
-                                : 'text-muted-foreground'
-                            }`}>
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </p>
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 w-6 p-0 ${
-                                  message.role === 'user' 
-                                    ? 'hover:bg-primary-foreground/20 text-primary-foreground/70' 
-                                    : 'hover:bg-accent'
-                                }`}
-                                onClick={() => handleCopyMessage(message.content)}
-                              >
-                                <Copy className="w-3 h-3" />
-                              </Button>
-                            </div>
+                {messagesLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-medium mb-2">Start the conversation</h3>
+                    <p className="text-muted-foreground">
+                      Ask me anything about medical topics and I'll help you learn!
+                    </p>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} group`}
+                    >
+                      <Card className={`max-w-[80%] p-4 relative ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-card'
+                      }`}>
+                        {message.role === 'assistant' ? (
+                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
                           </div>
-                        </Card>
-                      </div>
-                    ))
-                  )}
-                  
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <Card className="p-4 bg-card">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.2s]"></div>
-                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.4s]"></div>
+                        ) : (
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-2">
+                          <p className={`text-xs ${
+                            message.role === 'user'
+                              ? 'text-primary-foreground/70'
+                              : 'text-muted-foreground'
+                          }`}>
+                            {new Date(message.created_at).toLocaleTimeString()}
+                          </p>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-6 w-6 p-0 ${
+                                message.role === 'user'
+                                  ? 'hover:bg-primary-foreground/20 text-primary-foreground/70'
+                                  : 'hover:bg-accent'
+                              }`}
+                              onClick={() => handleCopyMessage(message.content)}
+                            >
+                              <Copy className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
                       </Card>
                     </div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </div>
+                  ))
+                )}
+
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <Card className="p-4 bg-card">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.4s]"></div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
             </div>
 
             <Separator />
-            
+
             <div className="p-6">
               <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
                 <div className="flex gap-4">
@@ -400,8 +431,8 @@ const ChatInterface = () => {
                       }
                     }}
                   />
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={isLoading || !input.trim()}
                     variant="hero"
                     className="self-end"
@@ -416,7 +447,7 @@ const ChatInterface = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center p-6 pt-14">
+          <div className="flex-1 flex items-center justify-center p-6 pt-16"> {/* Increased pt to avoid toggle button */}
             <div className="text-center">
               <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-medium mb-2">Welcome to MedTutor AI</h3>
