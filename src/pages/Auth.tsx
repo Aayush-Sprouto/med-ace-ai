@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,9 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const { signIn, signUp, signInWithGoogle, resetPassword, user } = useAuth();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -23,7 +25,13 @@ const Auth = () => {
     if (user) {
       navigate('/chat');
     }
-  }, [user, navigate]);
+    
+    // Check if it's a password reset mode
+    const mode = searchParams.get('mode');
+    if (mode === 'reset') {
+      setShowForgotPassword(true);
+    }
+  }, [user, navigate, searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +109,29 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await resetPassword(email);
+    
+    if (error) {
+      toast({
+        title: "Reset Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Reset Email Sent!",
+        description: "Please check your email for password reset instructions.",
+      });
+      setShowForgotPassword(false);
+    }
+    
+    setIsLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background/50 to-primary/5">
       <div className="w-full max-w-md">
@@ -159,6 +190,16 @@ const Auth = () => {
                   >
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
+                  
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
                   
                   <Separator className="my-4" />
                   
@@ -245,6 +286,46 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-background border border-border/50 rounded-lg p-6 w-full max-w-md shadow-elegant">
+              <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowForgotPassword(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    disabled={isLoading}
+                    variant="hero"
+                  >
+                    {isLoading ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
