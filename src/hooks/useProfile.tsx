@@ -81,7 +81,7 @@ export const useProfile = () => {
     }
   };
 
-  const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'study_level'>>) => {
+  const updateProfile = async (updates: Partial<Pick<Profile, 'display_name' | 'study_level' | 'avatar_url'>>) => {
     if (!user) return false;
 
     try {

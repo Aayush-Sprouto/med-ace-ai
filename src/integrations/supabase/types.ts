@@ -100,12 +100,61 @@ export type Database = {
         }
         Relationships: []
       }
+      user_statistics: {
+        Row: {
+          created_at: string
+          id: string
+          last_active_at: string | null
+          questions_asked: number
+          study_sessions: number
+          topics_covered: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_active_at?: string | null
+          questions_asked?: number
+          study_sessions?: number
+          topics_covered?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_active_at?: string | null
+          questions_asked?: number
+          study_sessions?: number
+          topics_covered?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_stats: {
+        Args: { user_uuid: string }
+        Returns: {
+          questions_asked: number
+          study_sessions: number
+          topics_covered: number
+          last_active_at: string
+        }[]
+      }
+      increment_question_count: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
+      increment_session_count: {
+        Args: { user_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

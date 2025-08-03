@@ -27,6 +27,9 @@ import {
 import { useForm } from 'react-hook-form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Upload } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -36,7 +39,7 @@ interface EditProfileDialogProps {
     study_level: string | null;
     avatar_url: string | null;
   } | null;
-  onSave: (data: { display_name: string; study_level: string }) => Promise<boolean>;
+  onSave: (data: { display_name?: string; study_level?: string; avatar_url?: string }) => Promise<boolean>;
 }
 
 interface FormData {
@@ -56,6 +59,9 @@ const studyLevels = [
 
 export const EditProfileDialog = ({ open, onOpenChange, profile, onSave }: EditProfileDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -83,6 +89,71 @@ export const EditProfileDialog = ({ open, onOpenChange, profile, onSave }: EditP
     setIsLoading(false);
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+
+    try {
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      await onSave({ avatar_url: publicUrl });
+
+      toast({
+        title: "Photo uploaded successfully!",
+        description: "Your profile photo has been updated.",
+      });
+
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload photo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -102,10 +173,29 @@ export const EditProfileDialog = ({ open, onOpenChange, profile, onSave }: EditP
                   <User className="w-10 h-10" />
                 </AvatarFallback>
               </Avatar>
-              <Button type="button" variant="outline" size="sm" disabled>
-                <Upload className="w-4 h-4 mr-2" />
-                Change Photo (Coming Soon)
-              </Button>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                <label htmlFor="avatar-upload">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={isUploadingPhoto}
+                    asChild
+                  >
+                    <span className="cursor-pointer">
+                      <Upload className="w-4 h-4 mr-2" />
+                      {isUploadingPhoto ? "Uploading..." : "Change Photo"}
+                    </span>
+                  </Button>
+                </label>
+              </div>
             </div>
 
             <FormField
