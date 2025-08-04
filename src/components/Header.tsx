@@ -1,10 +1,12 @@
-import { Link, NavLink } from "react-router-dom"; // <<<--- CHANGE: NavLink import kiya
+import { Link, NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, MessageSquare, User } from "lucide-react";
+import { Brain, MessageSquare, User, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 
 const Header = () => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -42,6 +44,19 @@ const Header = () => {
             <User className="w-4 h-4" />
             Profile
           </NavLink>
+          {isAdmin && (
+            <NavLink 
+              to="/admin" 
+              className={({ isActive }) =>
+                `transition-colors flex items-center gap-2 ${
+                  isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`
+              }
+            >
+              <Shield className="w-4 h-4" />
+              Admin
+            </NavLink>
+          )}
         </nav>
 
         {/* Right Side: Auth buttons and Mobile Icons */}
@@ -62,6 +77,14 @@ const Header = () => {
                 >
                   <User className="h-5 w-5 text-muted-foreground" />
                 </NavLink>
+                {isAdmin && (
+                  <NavLink 
+                    to="/admin" 
+                    className={({isActive}) => `p-2 rounded-md transition-colors ${isActive ? 'bg-accent' : 'hover:bg-accent/50'}`}
+                  >
+                    <Shield className="h-5 w-5 text-muted-foreground" />
+                  </NavLink>
+                )}
               </div>
 
               <span className="text-sm text-muted-foreground hidden md:inline">
