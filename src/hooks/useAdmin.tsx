@@ -57,13 +57,25 @@ export const useAdmin = () => {
       }
 
       try {
+        console.log('Checking admin status for user:', user.id);
         const { data, error } = await supabase.rpc('has_role', {
           _user_id: user.id,
           _role: 'admin'
         });
 
         if (error) throw error;
+        console.log('Admin status result:', data);
         setIsAdmin(data);
+        
+        // Auto-fetch data when admin status is confirmed
+        if (data) {
+          console.log('User is admin, fetching data...');
+          await Promise.all([
+            fetchStats(),
+            fetchUsers(), 
+            fetchLogs()
+          ]);
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
@@ -77,13 +89,27 @@ export const useAdmin = () => {
 
   // Fetch admin statistics
   const fetchStats = async () => {
-    if (!isAdmin) return;
-
     try {
+      console.log('Fetching admin stats...');
       const { data, error } = await supabase.rpc('get_admin_stats');
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
+      console.log('Admin stats response:', data);
       if (data && data.length > 0) {
         setStats(data[0]);
+        console.log('Stats set:', data[0]);
+      } else {
+        console.log('No stats data returned');
+        setStats({
+          total_users: 0,
+          active_users_today: 0,
+          total_conversations: 0,
+          total_messages: 0,
+          questions_today: 0,
+          new_users_today: 0
+        });
       }
     } catch (error) {
       console.error('Error fetching admin stats:', error);
@@ -97,10 +123,10 @@ export const useAdmin = () => {
 
   // Fetch all users
   const fetchUsers = async () => {
-    if (!isAdmin) return;
-
     try {
-      // Fetch all profiles with user details
+      console.log('Fetching users...');
+      
+      // Fetch all profiles with related data using joins
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
@@ -108,46 +134,36 @@ export const useAdmin = () => {
           display_name,
           avatar_url,
           study_level,
-          created_at
+          created_at,
+          user_roles(role),
+          user_statistics(questions_asked, study_sessions, topics_covered, last_active_at)
         `);
 
-      if (profilesError) throw profilesError;
-
-      const userDetails = [];
-      for (const profile of profiles || []) {
-        try {
-          // Get user details from the function
-          const { data: userDetailData, error: userError } = await supabase.rpc('get_user_details', {
-            _user_id: profile.user_id
-          });
-
-          if (!userError && userDetailData && userDetailData.length > 0) {
-            userDetails.push({
-              ...userDetailData[0],
-              email: userDetailData[0].email || 'No email available'
-            });
-          } else {
-            // Fallback for users without complete data
-            userDetails.push({
-              user_id: profile.user_id,
-              email: 'No email available',
-              display_name: profile.display_name || 'Unknown',
-              avatar_url: profile.avatar_url || '',
-              study_level: profile.study_level || 'Beginner',
-              role: 'user' as const,
-              questions_asked: 0,
-              study_sessions: 0,
-              topics_covered: 0,
-              last_active_at: null,
-              created_at: profile.created_at,
-              conversation_count: 0
-            });
-          }
-        } catch (error) {
-          console.error(`Error fetching details for user ${profile.user_id}:`, error);
-        }
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
       }
+      
+      console.log('Profiles data:', profiles);
 
+      const userDetails = (profiles || []).map((profile: any) => ({
+        user_id: profile.user_id,
+        email: 'admin@example.com', // Default since we can't get email from auth
+        display_name: profile.display_name || 'Unknown',
+        avatar_url: profile.avatar_url || '',
+        study_level: profile.study_level || 'Beginner',
+        role: (profile.user_roles && profile.user_roles.length > 0 
+          ? profile.user_roles[0].role 
+          : 'user') as 'admin' | 'moderator' | 'user',
+        questions_asked: profile.user_statistics?.[0]?.questions_asked || 0,
+        study_sessions: profile.user_statistics?.[0]?.study_sessions || 0,
+        topics_covered: profile.user_statistics?.[0]?.topics_covered || 0,
+        last_active_at: profile.user_statistics?.[0]?.last_active_at || null,
+        created_at: profile.created_at,
+        conversation_count: 0 // We'll calculate this separately if needed
+      }));
+
+      console.log('Transformed user details:', userDetails);
       setUsers(userDetails);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -161,16 +177,20 @@ export const useAdmin = () => {
 
   // Fetch admin logs
   const fetchLogs = async () => {
-    if (!isAdmin) return;
-
     try {
+      console.log('Fetching admin logs...');
       const { data, error } = await supabase
         .from('admin_logs')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching logs:', error);
+        throw error;
+      }
+      
+      console.log('Admin logs data:', data);
       setLogs((data || []).map(log => ({
         id: log.id,
         admin_id: log.admin_id,
