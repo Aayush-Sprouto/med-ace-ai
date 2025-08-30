@@ -100,17 +100,51 @@ export const useAdmin = () => {
     if (!isAdmin) return;
 
     try {
-      // Get all user IDs first
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      if (authError) throw authError;
+      // Fetch all profiles with user details
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select(`
+          user_id,
+          display_name,
+          avatar_url,
+          study_level,
+          created_at
+        `);
+
+      if (profilesError) throw profilesError;
 
       const userDetails = [];
-      for (const authUser of authUsers.users) {
-        const { data, error } = await supabase.rpc('get_user_details', {
-          _user_id: authUser.id
-        });
-        if (!error && data && data.length > 0) {
-          userDetails.push(data[0]);
+      for (const profile of profiles || []) {
+        try {
+          // Get user details from the function
+          const { data: userDetailData, error: userError } = await supabase.rpc('get_user_details', {
+            _user_id: profile.user_id
+          });
+
+          if (!userError && userDetailData && userDetailData.length > 0) {
+            userDetails.push({
+              ...userDetailData[0],
+              email: userDetailData[0].email || 'No email available'
+            });
+          } else {
+            // Fallback for users without complete data
+            userDetails.push({
+              user_id: profile.user_id,
+              email: 'No email available',
+              display_name: profile.display_name || 'Unknown',
+              avatar_url: profile.avatar_url || '',
+              study_level: profile.study_level || 'Beginner',
+              role: 'user' as const,
+              questions_asked: 0,
+              study_sessions: 0,
+              topics_covered: 0,
+              last_active_at: null,
+              created_at: profile.created_at,
+              conversation_count: 0
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching details for user ${profile.user_id}:`, error);
         }
       }
 
@@ -219,19 +253,38 @@ export const useAdmin = () => {
     }
   };
 
-  // Delete user
+  // Delete user (admin function not available in client, so we'll disable the user instead)
   const deleteUser = async (userId: string) => {
     if (!isAdmin) return;
 
     try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      // Instead of actually deleting, we'll remove the user's profile and data
+      // First delete related data
+      await supabase.from('user_statistics').delete().eq('user_id', userId);
+      await supabase.from('user_roles').delete().eq('user_id', userId);
+      
+      // Delete conversations and messages
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', userId);
+      
+      if (conversations) {
+        for (const conv of conversations) {
+          await supabase.from('messages').delete().eq('conversation_id', conv.id);
+        }
+        await supabase.from('conversations').delete().eq('user_id', userId);
+      }
+      
+      // Finally delete the profile
+      const { error } = await supabase.from('profiles').delete().eq('user_id', userId);
       if (error) throw error;
 
       await logAdminAction('delete_user', userId);
 
       toast({
         title: "Success",
-        description: "User deleted successfully",
+        description: "User data deleted successfully",
       });
 
       fetchUsers();
@@ -240,7 +293,7 @@ export const useAdmin = () => {
       console.error('Error deleting user:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user",
+        description: "Failed to delete user data",
         variant: "destructive",
       });
     }
