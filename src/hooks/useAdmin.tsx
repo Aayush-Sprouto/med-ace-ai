@@ -126,18 +126,10 @@ export const useAdmin = () => {
     try {
       console.log('Fetching users...');
       
-      // Fetch all profiles with related data using joins
+      // Fetch profiles first
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          user_id,
-          display_name,
-          avatar_url,
-          study_level,
-          created_at,
-          user_roles(role),
-          user_statistics(questions_asked, study_sessions, topics_covered, last_active_at)
-        `);
+        .select('user_id, display_name, avatar_url, study_level, created_at');
 
       if (profilesError) {
         console.error('Error fetching profiles:', profilesError);
@@ -146,22 +138,50 @@ export const useAdmin = () => {
       
       console.log('Profiles data:', profiles);
 
-      const userDetails = (profiles || []).map((profile: any) => ({
-        user_id: profile.user_id,
-        email: 'admin@example.com', // Default since we can't get email from auth
-        display_name: profile.display_name || 'Unknown',
-        avatar_url: profile.avatar_url || '',
-        study_level: profile.study_level || 'Beginner',
-        role: (profile.user_roles && profile.user_roles.length > 0 
-          ? profile.user_roles[0].role 
-          : 'user') as 'admin' | 'moderator' | 'user',
-        questions_asked: profile.user_statistics?.[0]?.questions_asked || 0,
-        study_sessions: profile.user_statistics?.[0]?.study_sessions || 0,
-        topics_covered: profile.user_statistics?.[0]?.topics_covered || 0,
-        last_active_at: profile.user_statistics?.[0]?.last_active_at || null,
-        created_at: profile.created_at,
-        conversation_count: 0 // We'll calculate this separately if needed
-      }));
+      if (!profiles || profiles.length === 0) {
+        console.log('No profiles found');
+        setUsers([]);
+        return;
+      }
+
+      // Fetch user roles separately
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+      }
+
+      // Fetch user statistics separately
+      const { data: userStats, error: statsError } = await supabase
+        .from('user_statistics')
+        .select('user_id, questions_asked, study_sessions, topics_covered, last_active_at');
+
+      if (statsError) {
+        console.error('Error fetching user statistics:', statsError);
+      }
+
+      // Transform and combine data
+      const userDetails = profiles.map((profile: any) => {
+        const userRole = userRoles?.find(role => role.user_id === profile.user_id);
+        const userStat = userStats?.find(stat => stat.user_id === profile.user_id);
+
+        return {
+          user_id: profile.user_id,
+          email: 'user@example.com', // Default since we can't get email from auth directly
+          display_name: profile.display_name || 'Unknown',
+          avatar_url: profile.avatar_url || '',
+          study_level: profile.study_level || 'Beginner',
+          role: (userRole?.role || 'user') as 'admin' | 'moderator' | 'user',
+          questions_asked: userStat?.questions_asked || 0,
+          study_sessions: userStat?.study_sessions || 0,
+          topics_covered: userStat?.topics_covered || 0,
+          last_active_at: userStat?.last_active_at || null,
+          created_at: profile.created_at,
+          conversation_count: 0 // We'll calculate this separately if needed
+        };
+      });
 
       console.log('Transformed user details:', userDetails);
       setUsers(userDetails);
@@ -172,6 +192,7 @@ export const useAdmin = () => {
         description: "Failed to fetch users",
         variant: "destructive",
       });
+      setUsers([]); // Set empty array on error
     }
   };
 
