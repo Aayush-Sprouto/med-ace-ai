@@ -47,6 +47,51 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_settings: {
+        Row: {
+          ai_model: string
+          allow_guest_access: boolean
+          created_at: string
+          created_by: string | null
+          enable_analytics: boolean
+          id: string
+          maintenance_mode: boolean
+          max_questions_per_hour: number
+          max_tokens: number
+          rate_limit_enabled: boolean
+          system_prompt: string
+          temperature: number
+        }
+        Insert: {
+          ai_model?: string
+          allow_guest_access?: boolean
+          created_at?: string
+          created_by?: string | null
+          enable_analytics?: boolean
+          id?: string
+          maintenance_mode?: boolean
+          max_questions_per_hour?: number
+          max_tokens?: number
+          rate_limit_enabled?: boolean
+          system_prompt?: string
+          temperature?: number
+        }
+        Update: {
+          ai_model?: string
+          allow_guest_access?: boolean
+          created_at?: string
+          created_by?: string | null
+          enable_analytics?: boolean
+          id?: string
+          maintenance_mode?: boolean
+          max_questions_per_hour?: number
+          max_tokens?: number
+          rate_limit_enabled?: boolean
+          system_prompt?: string
+          temperature?: number
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string

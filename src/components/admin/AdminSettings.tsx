@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useAdminSettings } from '@/hooks/useAdminSettings';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,41 +8,31 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings, Database, Shield, Zap, AlertTriangle, Save } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 const AdminSettings = () => {
+  const { settings, loading, saveSettings } = useAdminSettings();
   const { logAdminAction } = useAdmin();
-  const { toast } = useToast();
-  
-  const [settings, setSettings] = useState({
-    aiModel: 'gemini-1.5-flash-latest',
-    maxTokens: 2048,
-    temperature: 0.7,
-    systemPrompt: `You are 'MedTutor AI', an expert USMLE medical tutor with deep knowledge in all medical fields.`,
-    enableAnalytics: true,
-    allowGuestAccess: false,
-    maintenanceMode: false,
-    rateLimitEnabled: true,
-    maxQuestionsPerHour: 50,
-  });
 
-  const handleSave = async (section: string) => {
-    try {
-      await logAdminAction('update_settings', undefined, { section, settings });
-      
-      toast({
-        title: "Settings Updated",
-        description: `${section} settings have been saved successfully.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save settings. Please try again.",
-        variant: "destructive",
+  const handleSave = async (section: string, sectionSettings: any) => {
+    const success = await saveSettings(sectionSettings);
+    
+    if (success) {
+      await logAdminAction('update_settings', undefined, {
+        section,
+        settings: { ...settings, ...sectionSettings }
       });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -68,12 +58,21 @@ const AdminSettings = () => {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="aiModel">AI Model</Label>
-              <Input
-                id="aiModel"
-                value={settings.aiModel}
-                onChange={(e) => setSettings({...settings, aiModel: e.target.value})}
-                placeholder="gemini-1.5-flash-latest"
-              />
+              <Select 
+                value={settings.aiModel} 
+                onValueChange={(value) => handleSave('AI Configuration', { aiModel: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select AI model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt-5-2025-08-07">GPT-5 (Latest)</SelectItem>
+                  <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini</SelectItem>
+                  <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1</SelectItem>
+                  <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                  <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="temperature">Temperature</Label>
@@ -84,9 +83,21 @@ const AdminSettings = () => {
                 min="0"
                 max="2"
                 value={settings.temperature}
-                onChange={(e) => setSettings({...settings, temperature: parseFloat(e.target.value)})}
+                onChange={(e) => handleSave('AI Configuration', { temperature: parseFloat(e.target.value) })}
               />
             </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="maxTokens">Max Tokens</Label>
+            <Input
+              id="maxTokens"
+              type="number"
+              min="1"
+              max="8192"
+              value={settings.maxTokens}
+              onChange={(e) => handleSave('AI Configuration', { maxTokens: parseInt(e.target.value) })}
+            />
           </div>
           
           <div className="space-y-2">
@@ -95,15 +106,10 @@ const AdminSettings = () => {
               id="systemPrompt"
               rows={6}
               value={settings.systemPrompt}
-              onChange={(e) => setSettings({...settings, systemPrompt: e.target.value})}
+              onChange={(e) => handleSave('AI Configuration', { systemPrompt: e.target.value })}
               placeholder="Enter the system prompt for the AI..."
             />
           </div>
-          
-          <Button onClick={() => handleSave('AI Configuration')} className="w-full">
-            <Save className="h-4 w-4 mr-2" />
-            Save AI Settings
-          </Button>
         </CardContent>
       </Card>
 
@@ -128,7 +134,7 @@ const AdminSettings = () => {
             </div>
             <Switch
               checked={settings.enableAnalytics}
-              onCheckedChange={(checked) => setSettings({...settings, enableAnalytics: checked})}
+              onCheckedChange={(checked) => handleSave('System Settings', { enableAnalytics: checked })}
             />
           </div>
           
@@ -143,7 +149,7 @@ const AdminSettings = () => {
             </div>
             <Switch
               checked={settings.allowGuestAccess}
-              onCheckedChange={(checked) => setSettings({...settings, allowGuestAccess: checked})}
+              onCheckedChange={(checked) => handleSave('System Settings', { allowGuestAccess: checked })}
             />
           </div>
           
@@ -161,14 +167,9 @@ const AdminSettings = () => {
             </div>
             <Switch
               checked={settings.maintenanceMode}
-              onCheckedChange={(checked) => setSettings({...settings, maintenanceMode: checked})}
+              onCheckedChange={(checked) => handleSave('System Settings', { maintenanceMode: checked })}
             />
           </div>
-          
-          <Button onClick={() => handleSave('System Settings')} className="w-full">
-            <Save className="h-4 w-4 mr-2" />
-            Save System Settings
-          </Button>
         </CardContent>
       </Card>
 
@@ -193,7 +194,7 @@ const AdminSettings = () => {
             </div>
             <Switch
               checked={settings.rateLimitEnabled}
-              onCheckedChange={(checked) => setSettings({...settings, rateLimitEnabled: checked})}
+              onCheckedChange={(checked) => handleSave('Security Settings', { rateLimitEnabled: checked })}
             />
           </div>
           
@@ -206,15 +207,10 @@ const AdminSettings = () => {
                 min="1"
                 max="1000"
                 value={settings.maxQuestionsPerHour}
-                onChange={(e) => setSettings({...settings, maxQuestionsPerHour: parseInt(e.target.value)})}
+                onChange={(e) => handleSave('Security Settings', { maxQuestionsPerHour: parseInt(e.target.value) })}
               />
             </div>
           )}
-          
-          <Button onClick={() => handleSave('Security Settings')} className="w-full">
-            <Save className="h-4 w-4 mr-2" />
-            Save Security Settings
-          </Button>
         </CardContent>
       </Card>
 
